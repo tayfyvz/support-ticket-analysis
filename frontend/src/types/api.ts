@@ -60,3 +60,18 @@ export interface AnalyzedTicketListResponse {
   page_size: number;
 }
 
+export interface AnalysisRunListItem {
+  id: number;
+  created_at: string;
+  summary: string | null;
+  ticket_count: number;
+  status: string; // "pending" | "processing" | "completed" | "failed"
+}
+
+export interface AnalysisRunListResponse {
+  items: AnalysisRunListItem[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+

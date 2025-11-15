@@ -37,3 +37,18 @@ class AnalysisStatusResponse(BaseModel):
     status: str  # "pending", "processing", "completed", "failed"
     ticket_ids: list[int] = []
 
+
+class AnalysisRunListItem(BaseModel):
+    id: int
+    created_at: datetime
+    summary: Optional[str] = None
+    ticket_count: int = 0
+    status: str  # "pending", "processing", "completed", "failed"
+
+
+class AnalysisRunListResponse(BaseModel):
+    items: list[AnalysisRunListItem]
+    page: int
+    page_size: int
+    total: int
+

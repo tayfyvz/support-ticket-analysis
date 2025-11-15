@@ -112,6 +112,12 @@
   padding: 0.75rem 1rem;
 }
 
+.ticket-grid-header > span,
+.ticket-grid-row > span {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .ticket-grid-header {
   background: #f3f4f6;
   font-weight: 600;
@@ -127,7 +133,7 @@
 
 .ticket-grid-row {
   border-top: 1px solid #f3f4f6;
-  align-items: center;
+  align-items: start;
 }
 
 .ticket-grid-row:nth-child(even) {
@@ -136,19 +142,31 @@
 
 .ticket-grid-row .ticket-description {
   color: #4b5563;
-  max-height: 4.2rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  line-height: 1.4;
 }
 
 .ticket-grid-row .ticket-created {
   color: #6b7280;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .ticket-grid-row .ticket-title {
   font-weight: 600;
   color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ticket-checkbox {

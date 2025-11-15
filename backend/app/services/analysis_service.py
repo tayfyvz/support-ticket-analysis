@@ -18,6 +18,103 @@ class AnalysisService:
     PRIORITIES = ["low", "medium", "high"]
 
     @staticmethod
+    async def list_analysis_runs(
+        db: AsyncSession, page: int = 1, page_size: int = 10
+    ) -> dict:
+        """List all analysis runs with pagination."""
+        from app.schemas.analysis import AnalysisRunListItem
+        from sqlalchemy import func
+        from app.models.entities import Ticket, TicketStatus
+        
+        offset = (page - 1) * page_size
+
+        # Get total count
+        total_result = await db.execute(select(func.count(AnalysisRun.id)))
+        total = total_result.scalar_one()
+
+        # Get paginated analysis runs with ticket_analyses loaded
+        from sqlalchemy.orm import joinedload
+        
+        result = await db.execute(
+            select(AnalysisRun)
+            .options(joinedload(AnalysisRun.ticket_analyses))
+            .order_by(AnalysisRun.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        runs = result.unique().scalars().all()
+
+        # Build response with status and ticket count
+        items = []
+        for run in runs:
+            # Get ticket count from ticket_analyses
+            ticket_count = len(run.ticket_analyses) if run.ticket_analyses else 0
+            
+            # Determine status based on ticket statuses
+            if ticket_count > 0:
+                ticket_ids = [ta.ticket_id for ta in run.ticket_analyses]
+                tickets_result = await db.execute(
+                    select(Ticket).where(Ticket.id.in_(ticket_ids))
+                )
+                tickets = tickets_result.scalars().all()
+                
+                if all(t.status == TicketStatus.ANALYZED.value for t in tickets):
+                    status = "completed"
+                elif any(t.status == TicketStatus.FAILED.value for t in tickets):
+                    status = "failed"
+                elif any(t.status == TicketStatus.PROCESSING.value for t in tickets):
+                    status = "processing"
+                else:
+                    status = "pending"
+            else:
+                # No tickets yet, check if there are processing tickets that might belong
+                tickets_result = await db.execute(
+                    select(Ticket).where(Ticket.status == TicketStatus.PROCESSING.value)
+                )
+                processing_tickets = tickets_result.scalars().all()
+                if processing_tickets:
+                    status = "processing"
+                    ticket_count = len(processing_tickets)
+                else:
+                    status = "pending"
+            
+            items.append(AnalysisRunListItem(
+                id=run.id,
+                created_at=run.created_at,
+                summary=run.summary,
+                ticket_count=ticket_count,
+                status=status
+            ))
+
+        return {
+            "items": items,
+            "page": page,
+            "page_size": page_size,
+            "total": total
+        }
+
+    @staticmethod
+    async def get_analysis_run_details(
+        db: AsyncSession, analysis_run_id: int
+    ) -> AnalysisRunResponse:
+        """Get detailed information about a specific analysis run."""
+        from sqlalchemy.orm import joinedload
+        
+        result = await db.execute(
+            select(AnalysisRun)
+            .where(AnalysisRun.id == analysis_run_id)
+            .options(
+                joinedload(AnalysisRun.ticket_analyses).joinedload(TicketAnalysis.ticket)
+            )
+        )
+        analysis_run = result.unique().scalar_one_or_none()
+        
+        if not analysis_run:
+            raise ValueError(f"Analysis run {analysis_run_id} not found")
+        
+        return AnalysisRunResponse.model_validate(analysis_run)
+
+    @staticmethod
     async def analyze_tickets(
         db: AsyncSession,
         background_tasks: BackgroundTasks,

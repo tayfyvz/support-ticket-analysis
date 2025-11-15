@@ -2,6 +2,7 @@ import { TicketForm } from './components/TicketForm/TicketForm';
 import { ReadyToAnalyzeGrid } from './components/ReadyToAnalyzeGrid/ReadyToAnalyzeGrid';
 import { ProcessingTicketsGrid } from './components/ProcessingTicketsGrid/ProcessingTicketsGrid';
 import { AnalyzedTicketsGrid } from './components/AnalyzedTicketsGrid/AnalyzedTicketsGrid';
+import { AnalysisRunsGrid } from './components/AnalysisRunsGrid/AnalysisRunsGrid';
 import './App.css';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <ReadyToAnalyzeGrid />
         <ProcessingTicketsGrid />
         <AnalyzedTicketsGrid />
+        <AnalysisRunsGrid />
       </main>
     </div>
   );

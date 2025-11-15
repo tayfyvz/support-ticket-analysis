@@ -4,8 +4,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from fastapi import Query
+
 from app.db.session import get_session
-from app.schemas.analysis import AnalyzeRequest, AnalysisRunResponse, AnalysisStatusResponse
+from app.schemas.analysis import (
+    AnalyzeRequest, 
+    AnalysisRunResponse, 
+    AnalysisStatusResponse,
+    AnalysisRunListResponse
+)
 from app.services.analysis_service import AnalysisService
 from app.models.entities import AnalysisRun
 
@@ -150,4 +157,27 @@ async def get_active_analysis_runs(
                 ))
     
     return active_runs
+
+
+@router.get("/runs", response_model=AnalysisRunListResponse)
+async def list_analysis_runs(
+    db: Annotated[AsyncSession, Depends(get_session)],
+    page: Annotated[int, Query(ge=1, description="Page number (1-indexed)")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 10,
+) -> AnalysisRunListResponse:
+    """List all analysis runs with pagination."""
+    result = await AnalysisService.list_analysis_runs(db, page=page, page_size=page_size)
+    return AnalysisRunListResponse(**result)
+
+
+@router.get("/{analysis_run_id}", response_model=AnalysisRunResponse)
+async def get_analysis_run(
+    analysis_run_id: int,
+    db: Annotated[AsyncSession, Depends(get_session)],
+) -> AnalysisRunResponse:
+    """Get detailed information about a specific analysis run including all tickets."""
+    try:
+        return await AnalysisService.get_analysis_run_details(db, analysis_run_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 

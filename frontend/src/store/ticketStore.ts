@@ -273,6 +273,8 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
           await get().loadTickets();
           // Refresh analyzed tickets
           await useAnalyzedTicketStore.getState().loadTickets();
+          // Dispatch event to refresh analysis runs grid
+          window.dispatchEvent(new CustomEvent('analysisCompleted', { detail: { analysisRunId } }));
         } else if (status.status === 'failed') {
           // Analysis failed - stop polling for this run, remove its tickets, show error
           get().stopPollingStatus(analysisRunId);
