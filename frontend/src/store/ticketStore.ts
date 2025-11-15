@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createTickets, fetchTickets, analyzeTickets, getAnalysisStatus } from '../api/client';
+import { createTickets, fetchTickets, analyzeTickets, getAnalysisStatus, getActiveAnalysisRuns } from '../api/client';
 import { useAnalyzedTicketStore } from './analyzedTicketStore';
 import type { TicketStore, ProcessingTicket } from '../types/store';
 import type { TicketResponse } from '../types/api';
@@ -271,12 +271,13 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
           get().stopPollingStatus(analysisRunId);
           get().removeProcessingTickets(analysisRunId);
           await get().loadTickets();
-          // Only refresh analyzed tickets once (avoid duplicates from multiple completions)
+          // Refresh analyzed tickets
           await useAnalyzedTicketStore.getState().loadTickets();
         } else if (status.status === 'failed') {
           // Analysis failed - stop polling for this run, remove its tickets, show error
           get().stopPollingStatus(analysisRunId);
           get().removeProcessingTickets(analysisRunId);
+          await get().loadTickets(); // Refresh to show failed tickets back in ready list
           set({ 
             error: 'Analysis failed. Please try again.'
           });
@@ -310,6 +311,54 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
     const { activeAnalysisRuns } = get();
     Object.values(activeAnalysisRuns).forEach((interval) => clearInterval(interval));
     set({ activeAnalysisRuns: {} });
+  },
+
+  restoreProcessingState: async (): Promise<void> => {
+    try {
+      // Get all active analysis runs
+      const activeRuns = await getActiveAnalysisRuns();
+      
+      if (activeRuns.length === 0) {
+        return; // No active runs
+      }
+
+      // Fetch all processing tickets
+      const processingTicketsData = await fetchTickets({ status: 'processing', pageSize: 1000 });
+      const allProcessingTickets = processingTicketsData.items;
+      
+      const processingTickets: ProcessingTicket[] = [];
+      
+      // For each active run, find the tickets and add to processing
+      for (const run of activeRuns) {
+        if (run.ticket_ids && run.ticket_ids.length > 0) {
+          const ticketsForRun = allProcessingTickets.filter(t => run.ticket_ids.includes(t.id));
+          
+          ticketsForRun.forEach(ticket => {
+            processingTickets.push({
+              ticket,
+              analysisRunId: run.analysis_run_id
+            });
+          });
+          
+          // Start polling for this analysis run
+          get().startPollingStatus(run.analysis_run_id);
+        }
+      }
+      
+      if (processingTickets.length > 0) {
+        set({ processingTickets });
+        
+        // Remove processing tickets from ready-to-analyze grid
+        const processingTicketIds = new Set(processingTickets.map(pt => pt.ticket.id));
+        const { tickets } = get();
+        set({ 
+          tickets: tickets.filter(t => !processingTicketIds.has(t.id))
+        });
+      }
+    } catch (error) {
+      console.error('Failed to restore processing state:', error);
+      // Don't throw - this is a background operation
+    }
   },
 }));
 

@@ -4,18 +4,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 
 from app.api.analysis import router as analysis_router
 from app.api.tickets import router as tickets_router
 from app.core.config import get_settings
-from app.db.session import async_engine
+from app.db.session import async_engine, Base
+# Import models to register them with Base.metadata
+from app.models import Ticket, AnalysisRun, TicketAnalysis  # noqa: F401
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create all database tables
     async with async_engine.begin() as conn:
-        await conn.execute(text("SELECT 1"))
+        await conn.run_sync(Base.metadata.create_all)
     try:
         yield
     finally:

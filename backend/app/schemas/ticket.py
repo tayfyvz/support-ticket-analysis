@@ -13,6 +13,7 @@ class TicketResponse(BaseModel):
     title: str
     description: str
     created_at: datetime
+    status: str  # "pending", "processing", "analyzed", "failed"
 
     class Config:
         from_attributes = True
@@ -25,7 +26,8 @@ class TicketListResponse(BaseModel):
 
 
 class AnalyzedTicketResponse(BaseModel):
-    id: int
+    id: int  # ticket id
+    analysis_id: int  # ticket_analysis id (for unique key)
     title: str
     description: str
     priority: str

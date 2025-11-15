@@ -38,7 +38,10 @@ async def list_analyzed_tickets(
 async def list_tickets(
     db: Annotated[AsyncSession, Depends(get_session)],
     page: Annotated[int, Query(ge=1, description="Page number (1-indexed)")] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 10,
+    page_size: Annotated[int, Query(ge=1, le=1000, description="Items per page")] = 10,
+    status: Annotated[str | None, Query(description="Filter by status")] = None,
 ) -> TicketListResponse:
-    """List tickets with pagination."""
+    """List tickets with pagination. Optionally filter by status."""
+    if status:
+        return await TicketService.list_tickets_by_status(db, status, page=page, page_size=page_size)
     return await TicketService.list_tickets(db, page=page, page_size=page_size)

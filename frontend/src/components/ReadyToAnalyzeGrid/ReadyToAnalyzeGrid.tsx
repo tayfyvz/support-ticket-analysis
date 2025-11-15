@@ -21,7 +21,12 @@ export function ReadyToAnalyzeGrid() {
   const [displayTickets, setDisplayTickets] = useState<TicketResponse[]>(tickets);
 
   useEffect(() => {
-    loadTickets();
+    const initialize = async () => {
+      await loadTickets();
+      // Restore processing state on mount (check for tickets with PROCESSING status)
+      await useTicketStore.getState().restoreProcessingState();
+    };
+    initialize();
   }, [loadTickets]);
 
   // Update display tickets only when loading completes

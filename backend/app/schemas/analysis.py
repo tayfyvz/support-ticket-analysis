@@ -26,7 +26,6 @@ class AnalysisRunResponse(BaseModel):
     id: int
     created_at: datetime
     summary: Optional[str] = None
-    status: str
     ticket_analyses: list[TicketAnalysisResponse] = []
 
     class Config:

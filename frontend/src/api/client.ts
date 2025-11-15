@@ -28,12 +28,16 @@ export async function createTickets(tickets: CreateTicketRequest[]): Promise<Tic
   return response.json();
 }
 
-export async function fetchTickets(options: { page?: number; pageSize?: number } = {}): Promise<TicketListResponse> {
-  const { page = 1, pageSize = 12 } = options;
+export async function fetchTickets(options: { page?: number; pageSize?: number; status?: string } = {}): Promise<TicketListResponse> {
+  const { page = 1, pageSize = 12, status } = options;
   const params = new URLSearchParams({
     page: String(page),
     page_size: String(pageSize),
   });
+  
+  if (status) {
+    params.append('status', status);
+  }
 
   const response = await fetch(`${API_BASE_URL}/api/tickets?${params.toString()}`);
 
@@ -99,6 +103,17 @@ export async function getAnalysisStatus(analysisRunId: number): Promise<Analysis
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Failed to get analysis status: ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function getActiveAnalysisRuns(): Promise<AnalysisStatusResponse[]> {
+  const response = await fetch(`${API_BASE_URL}/api/analyze/active`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get active analysis runs: ${response.statusText} - ${errorText}`);
   }
 
   return response.json();

@@ -33,5 +33,6 @@ export interface TicketStore {
   startPollingStatus: (analysisRunId: number) => void;
   stopPollingStatus: (analysisRunId: number) => void;
   stopAllPolling: () => void;
+  restoreProcessingState: () => Promise<void>;
 }
 

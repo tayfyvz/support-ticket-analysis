@@ -60,7 +60,7 @@ export function AnalyzedTicketsGrid() {
           </div>
           <div className="ticket-grid-body">
             {ticketsToShow.map((ticket) => (
-              <div key={ticket.id} className="ticket-grid-row" role="row">
+              <div key={ticket.analysis_id} className="ticket-grid-row" role="row">
                 <span role="cell" className="ticket-title">
                   {ticket.title}
                 </span>

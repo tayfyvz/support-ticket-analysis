@@ -39,13 +39,36 @@ class TicketService:
     async def list_tickets(
         db: AsyncSession, page: int = 1, page_size: int = 10
     ) -> TicketListResponse:
-        """List tickets with pagination, limited to tickets without analyses."""
+        """List tickets with pagination, limited to tickets with PENDING status (ready to analyze)."""
+        from app.models.entities import TicketStatus
+        
         offset = (page - 1) * page_size
 
-
-        # Get paginated tickets
+        # Get paginated tickets with PENDING status
         result = await db.execute(
-            select(Ticket).where(~Ticket.analyses.any())
+            select(Ticket).where(Ticket.status == TicketStatus.PENDING.value)
+            .order_by(Ticket.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        tickets: Sequence[Ticket] = result.scalars().all()
+
+        return TicketListResponse(
+            items=[TicketResponse.model_validate(t) for t in tickets],
+            page=page,
+            page_size=page_size,
+        )
+
+    @staticmethod
+    async def list_tickets_by_status(
+        db: AsyncSession, status: str, page: int = 1, page_size: int = 10
+    ) -> TicketListResponse:
+        """List tickets with pagination, filtered by status."""
+        offset = (page - 1) * page_size
+
+        # Get paginated tickets with specified status
+        result = await db.execute(
+            select(Ticket).where(Ticket.status == status)
             .order_by(Ticket.created_at.desc())
             .offset(offset)
             .limit(page_size)
@@ -63,12 +86,15 @@ class TicketService:
         db: AsyncSession, page: int = 1, page_size: int = 10
     ) -> AnalyzedTicketListResponse:
         """List analyzed tickets with pagination, including analysis details."""
+        from app.models.entities import TicketStatus
+        
         offset = (page - 1) * page_size
 
-        # Get paginated ticket analyses with their tickets
+        # Get paginated ticket analyses with their tickets (only ANALYZED status)
         result = await db.execute(
             select(TicketAnalysis)
             .join(Ticket)
+            .where(Ticket.status == TicketStatus.ANALYZED.value)
             .options(joinedload(TicketAnalysis.ticket))
             .order_by(TicketAnalysis.id.desc())
             .offset(offset)
@@ -82,6 +108,7 @@ class TicketService:
             analyzed_tickets.append(
                 AnalyzedTicketResponse(
                     id=analysis.ticket.id,
+                    analysis_id=analysis.id,  # Use analysis ID for unique key
                     title=analysis.ticket.title,
                     description=analysis.ticket.description,
                     priority=analysis.priority,

@@ -3,6 +3,7 @@ export interface TicketResponse {
   title: string;
   description: string;
   created_at: string; // ISO date string
+  status: string; // "pending" | "processing" | "analyzed" | "failed"
 }
 
 export interface TicketListResponse {
@@ -44,7 +45,8 @@ export interface AnalysisStatusResponse {
 }
 
 export interface AnalyzedTicketResponse {
-  id: number;
+  id: number; // ticket id
+  analysis_id: number; // ticket_analysis id (for unique key)
   title: string;
   description: string;
   priority: string;

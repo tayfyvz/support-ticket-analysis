@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.entities import AnalysisRun, Ticket, TicketAnalysis, AnalysisStatus
+from app.models.entities import AnalysisRun, Ticket, TicketAnalysis, TicketStatus
 from app.schemas.analysis import AnalysisRunResponse
 
 
@@ -27,28 +27,32 @@ class AnalysisService:
         
         # Determine which tickets to analyze
         if ticket_ids:
-            # Analyze specific tickets
+            # Analyze specific tickets with PENDING status
             result = await db.execute(
                 select(Ticket).where(
                     Ticket.id.in_(ticket_ids),
-                    ~Ticket.analyses.any()  # Only ready to analyze tickets
+                    Ticket.status == TicketStatus.PENDING.value
                 )
             )
             tickets: Sequence[Ticket] = result.scalars().all()
         else:
-            # Analyze all ready to analyze tickets
+            # Analyze all ready to analyze tickets (PENDING status)
             result = await db.execute(
-                select(Ticket).where(~Ticket.analyses.any())
+                select(Ticket).where(Ticket.status == TicketStatus.PENDING.value)
             )
             tickets: Sequence[Ticket] = result.scalars().all()
 
         if not tickets:
             raise ValueError("No tickets to analyze")
 
-        # Create analysis run with PENDING status
+        # Update ticket statuses to PROCESSING
+        for ticket in tickets:
+            ticket.status = TicketStatus.PROCESSING.value
+        await db.flush()
+
+        # Create analysis run
         analysis_run = AnalysisRun(
-            summary=f"Analyzing {len(tickets)} ticket(s)",
-            status=AnalysisStatus.PENDING.value
+            summary=f"Analyzing {len(tickets)} ticket(s)"
         )
         db.add(analysis_run)
         await db.flush()  # Get the ID
@@ -87,26 +91,19 @@ class AnalysisService:
     ) -> None:
         """Background task to process ticket analysis with simulated LLM processing time."""
         try:
-            # Update status to PROCESSING
-            await db.execute(
-                update(AnalysisRun)
-                .where(AnalysisRun.id == analysis_run_id)
-                .values(status=AnalysisStatus.PROCESSING.value)
-            )
-            await db.commit()
 
-            # Get tickets to analyze
+            # Get tickets to analyze (should be PROCESSING status)
             if ticket_ids:
                 result = await db.execute(
                     select(Ticket).where(
                         Ticket.id.in_(ticket_ids),
-                        ~Ticket.analyses.any()
+                        Ticket.status == TicketStatus.PROCESSING.value
                     )
                 )
                 tickets: Sequence[Ticket] = result.scalars().all()
             else:
                 result = await db.execute(
-                    select(Ticket).where(~Ticket.analyses.any())
+                    select(Ticket).where(Ticket.status == TicketStatus.PROCESSING.value)
                 )
                 tickets: Sequence[Ticket] = result.scalars().all()
 
@@ -132,13 +129,17 @@ class AnalysisService:
                         notes=notes,
                     )
                     db.add(ticket_analysis)
+                    # Update ticket status to ANALYZED
+                    ticket.status = TicketStatus.ANALYZED.value
                     successful_count += 1
                 except Exception as e:
                     # Log error but continue with other tickets
+                    # Update ticket status to FAILED
+                    ticket.status = TicketStatus.FAILED.value
                     failed_count += 1
                     print(f"Error analyzing ticket {ticket.id}: {e}")
 
-            # Update summary and status
+            # Update summary
             summary = f"Analyzed {successful_count} ticket(s)"
             if failed_count > 0:
                 summary += f", {failed_count} failed"
@@ -146,22 +147,30 @@ class AnalysisService:
             await db.execute(
                 update(AnalysisRun)
                 .where(AnalysisRun.id == analysis_run_id)
-                .values(
-                    status=AnalysisStatus.COMPLETED.value,
-                    summary=summary
-                )
+                .values(summary=summary)
             )
             await db.commit()
 
         except Exception as e:
-            # Mark as failed on error
+            # Mark tickets as failed on error
+            if ticket_ids:
+                await db.execute(
+                    update(Ticket)
+                    .where(Ticket.id.in_(ticket_ids))
+                    .values(status=TicketStatus.FAILED.value)
+                )
+            else:
+                # Mark all tickets without analyses as failed
+                await db.execute(
+                    update(Ticket)
+                    .where(~Ticket.analyses.any())
+                    .values(status=TicketStatus.FAILED.value)
+                )
+            
             await db.execute(
                 update(AnalysisRun)
                 .where(AnalysisRun.id == analysis_run_id)
-                .values(
-                    status=AnalysisStatus.FAILED.value,
-                    summary=f"Analysis failed: {str(e)}"
-                )
+                .values(summary=f"Analysis failed: {str(e)}")
             )
             await db.commit()
             raise
