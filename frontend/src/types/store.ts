@@ -19,6 +19,7 @@ export interface TicketStore {
 
   // Actions
   createTicket: (title: string, description: string) => Promise<TicketResponse>;
+  createTicketsFromCSV: (csvContent: string) => Promise<void>;
   loadTickets: (options?: { page?: number; pageSize?: number }) => Promise<void>;
   nextPage: () => Promise<void>;
   prevPage: () => Promise<void>;

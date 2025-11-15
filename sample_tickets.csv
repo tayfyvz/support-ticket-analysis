@@ -1,0 +1,12 @@
+title,description
+"Login Issue","User cannot log in to the system. Getting error message: Invalid credentials"
+"Payment Error","Payment processing failed for order #12345. Customer was charged but order not confirmed"
+"Feature Request","Add dark mode to the application for better user experience during night time usage"
+"Bug Report","Application crashes when uploading large files (over 100MB). Error occurs after 30 seconds"
+"Account Access","User forgot password and cannot reset it. Email verification link not working"
+"Performance Issue","Dashboard loading very slowly. Takes more than 10 seconds to load all widgets"
+"UI Improvement","Button colors are not accessible. Need better contrast for visually impaired users"
+"Integration Request","Need to integrate with third-party API for payment processing"
+"Data Export","Users requesting ability to export their data in CSV format"
+"Notification Bug","Email notifications not being sent when tickets are updated"
+

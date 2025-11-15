@@ -43,6 +43,83 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
     }
   },
 
+  createTicketsFromCSV: async (csvContent: string): Promise<void> => {
+    set({ loading: true, error: null });
+
+    try {
+      // Parse CSV content
+      const lines = csvContent.trim().split('\n');
+      if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
+      }
+
+      // Parse header
+      const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const titleIndex = header.indexOf('title');
+      const descriptionIndex = header.indexOf('description');
+
+      if (titleIndex === -1 || descriptionIndex === -1) {
+        throw new Error('CSV must have "title" and "description" columns');
+      }
+
+      // Parse data rows
+      const ticketsToCreate = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue; // Skip empty lines
+
+        // Simple CSV parsing (handles quoted values)
+        const values = [];
+        let currentValue = '';
+        let inQuotes = false;
+
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(currentValue.trim());
+            currentValue = '';
+          } else {
+            currentValue += char;
+          }
+        }
+        values.push(currentValue.trim()); // Add last value
+
+        if (values.length > titleIndex && values.length > descriptionIndex) {
+          const title = values[titleIndex].replace(/^"|"$/g, '').trim();
+          const description = values[descriptionIndex].replace(/^"|"$/g, '').trim();
+
+          if (title && description) {
+            ticketsToCreate.push({ title, description });
+          }
+        }
+      }
+
+      if (ticketsToCreate.length === 0) {
+        throw new Error('No valid tickets found in CSV file');
+      }
+
+      // Create tickets
+      await createTickets(ticketsToCreate);
+
+      // Refresh list
+      await get().loadTickets({ page: 1 });
+
+      set({
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create tickets from CSV';
+      set({
+        loading: false,
+        error: errorMessage,
+      });
+      throw error;
+    }
+  },
+
   loadTickets: async (options: { page?: number; pageSize?: number } = {}): Promise<void> => {
     const state = get();
     const page = options.page ?? state.page;
