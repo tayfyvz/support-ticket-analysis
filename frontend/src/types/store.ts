@@ -1,5 +1,10 @@
 import { TicketResponse } from './api';
 
+export interface ProcessingTicket {
+  ticket: TicketResponse;
+  analysisRunId: number;
+}
+
 export interface TicketStore {
   // State
   tickets: TicketResponse[];
@@ -9,6 +14,8 @@ export interface TicketStore {
   pageSize: number;
   hasMore: boolean;
   selectedTicketIds: number[];
+  processingTickets: ProcessingTicket[];
+  activeAnalysisRuns: Record<number, NodeJS.Timeout>; // Record of analysisRunId to polling interval
 
   // Actions
   createTicket: (title: string, description: string) => Promise<TicketResponse>;
@@ -20,5 +27,10 @@ export interface TicketStore {
   analyzeSelected: () => Promise<void>;
   analyzeAll: () => Promise<void>;
   clearError: () => void;
+  addProcessingTickets: (tickets: TicketResponse[], analysisRunId: number) => void;
+  removeProcessingTickets: (analysisRunId: number) => void;
+  startPollingStatus: (analysisRunId: number) => void;
+  stopPollingStatus: (analysisRunId: number) => void;
+  stopAllPolling: () => void;
 }
 

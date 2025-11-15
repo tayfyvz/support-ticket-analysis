@@ -3,10 +3,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+import enum
+import sqlalchemy as sa
 
 from app.db.session import Base
+
+
+class AnalysisStatus(str, enum.Enum):
+    """Status of an analysis run."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class Ticket(Base):
@@ -26,6 +36,11 @@ class AnalysisRun(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        SQLEnum(AnalysisStatus, name="analysis_status", native_enum=True, create_constraint=True, values_callable=lambda x: [e.value for e in x]),
+        default=AnalysisStatus.PENDING.value,
+        server_default=sa.text("'pending'")
+    )
 
     ticket_analyses: Mapped[List["TicketAnalysis"]] = relationship(back_populates="analysis_run", cascade="all, delete-orphan")
 

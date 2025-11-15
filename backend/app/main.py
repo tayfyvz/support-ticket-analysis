@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.api.analysis import router as analysis_router
 from app.api.tickets import router as tickets_router
 from app.core.config import get_settings
 from app.db.session import async_engine
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(tickets_router)
+    app.include_router(analysis_router)
 
     return app
 

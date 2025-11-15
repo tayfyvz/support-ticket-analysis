@@ -33,6 +33,28 @@ export interface AnalysisResponse {
   id: number;
   created_at: string;
   summary: string | null;
+  status: string;
   ticket_analyses: TicketAnalysis[];
+}
+
+export interface AnalysisStatusResponse {
+  analysis_run_id: number;
+  status: string; // "pending" | "processing" | "completed" | "failed"
+  ticket_ids: number[];
+}
+
+export interface AnalyzedTicketResponse {
+  id: number;
+  title: string;
+  description: string;
+  priority: string;
+  category: string;
+  notes: string | null;
+}
+
+export interface AnalyzedTicketListResponse {
+  items: AnalyzedTicketResponse[];
+  page: number;
+  page_size: number;
 }
 

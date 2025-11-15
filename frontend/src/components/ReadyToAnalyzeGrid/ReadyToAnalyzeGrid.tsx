@@ -1,5 +1,6 @@
-import { useEffect, ChangeEvent } from 'react';
+import { useEffect, useState, ChangeEvent } from 'react';
 import { useTicketStore } from '../../store/ticketStore';
+import type { TicketResponse } from '../../types/api';
 import './ReadyToAnalyzeGrid.css';
 
 export function ReadyToAnalyzeGrid() {
@@ -16,19 +17,33 @@ export function ReadyToAnalyzeGrid() {
   const analyzeSelected = useTicketStore((state) => state.analyzeSelected);
   const analyzeAll = useTicketStore((state) => state.analyzeAll);
 
+  // Keep previous tickets visible during loading to prevent scroll jump
+  const [displayTickets, setDisplayTickets] = useState<TicketResponse[]>(tickets);
+
   useEffect(() => {
     loadTickets();
   }, [loadTickets]);
 
+  // Update display tickets only when loading completes
+  // This keeps the old tickets visible during loading to prevent scroll jump
+  useEffect(() => {
+    if (!loading) {
+      // Update display tickets when loading completes
+      setDisplayTickets(tickets);
+    }
+    // When loading starts, displayTickets remains unchanged (showing previous tickets)
+  }, [tickets, loading]);
+
   const handleSelectAll = (e: ChangeEvent<HTMLInputElement>) => {
+    const ticketsToProcess = displayTickets.length > 0 ? displayTickets : tickets;
     if (e.target.checked) {
-      tickets.forEach(t => {
+      ticketsToProcess.forEach(t => {
         if (!selectedTicketIds.includes(t.id)) {
           toggleTicketSelection(t.id);
         }
       });
     } else {
-      tickets.forEach(t => {
+      ticketsToProcess.forEach(t => {
         if (selectedTicketIds.includes(t.id)) {
           toggleTicketSelection(t.id);
         }
@@ -37,64 +52,77 @@ export function ReadyToAnalyzeGrid() {
   };
 
   const renderContent = () => {
-    if (loading) {
-      return <div className="grid-status">Loading tickets...</div>;
-    }
-
-    if (error) {
+    // Show error state
+    if (error && !displayTickets.length) {
       return <div className="grid-status grid-error">{error}</div>;
     }
 
-    if (!tickets.length) {
+    // Show empty state only when not loading and no tickets
+    if (!loading && !displayTickets.length && !tickets.length) {
       return <div className="grid-status">No ready-to-analyze tickets yet.</div>;
     }
 
-    const allSelected = tickets.length > 0 && tickets.every(t => selectedTicketIds.includes(t.id));
+    // Use displayTickets to maintain content during loading
+    const ticketsToShow = displayTickets.length > 0 ? displayTickets : tickets;
+    const allSelected = ticketsToShow.length > 0 && ticketsToShow.every(t => selectedTicketIds.includes(t.id));
 
     return (
-      <div className="ticket-grid-table" role="table">
-        <div className="ticket-grid-header" role="row">
-          <span role="columnheader">
-            <input
-              type="checkbox"
-              aria-label="Select all"
-              checked={allSelected}
-              onChange={handleSelectAll}
-            />
-          </span>
-          <span role="columnheader">Title</span>
-          <span role="columnheader">Description</span>
-          <span role="columnheader">Created</span>
+      <div className="ticket-grid-container">
+        <div className="ticket-grid-table" role="table">
+          <div className="ticket-grid-header" role="row">
+            <span role="columnheader">
+              <input
+                type="checkbox"
+                aria-label="Select all"
+                checked={allSelected}
+                onChange={handleSelectAll}
+                disabled={loading}
+              />
+            </span>
+            <span role="columnheader">Title</span>
+            <span role="columnheader">Description</span>
+            <span role="columnheader">Created</span>
+          </div>
+          <div className="ticket-grid-body">
+            {ticketsToShow.map((ticket) => (
+              <div key={ticket.id} className="ticket-grid-row" role="row">
+                <span role="cell" className="ticket-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedTicketIds.includes(ticket.id)}
+                    onChange={() => toggleTicketSelection(ticket.id)}
+                    aria-label={`Select ticket ${ticket.id}`}
+                    disabled={loading}
+                  />
+                </span>
+                <span role="cell" className="ticket-title">
+                  {ticket.title}
+                </span>
+                <span role="cell" className="ticket-description">
+                  {ticket.description}
+                </span>
+                <span role="cell" className="ticket-created">
+                  {new Date(ticket.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="ticket-grid-body">
-          {tickets.map((ticket) => (
-            <div key={ticket.id} className="ticket-grid-row" role="row">
-              <span role="cell" className="ticket-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedTicketIds.includes(ticket.id)}
-                  onChange={() => toggleTicketSelection(ticket.id)}
-                  aria-label={`Select ticket ${ticket.id}`}
-                />
-              </span>
-              <span role="cell" className="ticket-title">
-                {ticket.title}
-              </span>
-              <span role="cell" className="ticket-description">
-                {ticket.description}
-              </span>
-              <span role="cell" className="ticket-created">
-                {new Date(ticket.created_at).toLocaleString()}
-              </span>
-            </div>
-          ))}
-        </div>
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <div className="loading-text">Loading tickets...</div>
+          </div>
+        )}
+        {error && displayTickets.length > 0 && (
+          <div className="grid-error-message">{error}</div>
+        )}
       </div>
     );
   };
 
   return (
-    <section className="unanalyzed-section">
+    <section className="ready-to-analyze-section">
       <div className="section-header">
         <div>
           <h2>Ready to Analyze</h2>

@@ -23,3 +23,20 @@ class TicketListResponse(BaseModel):
     page: int
     page_size: int
 
+
+class AnalyzedTicketResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    priority: str
+    category: str
+    notes: str | None
+
+    class Config:
+        from_attributes = True
+
+
+class AnalyzedTicketListResponse(BaseModel):
+    items: list[AnalyzedTicketResponse]
+    page: int
+    page_size: int

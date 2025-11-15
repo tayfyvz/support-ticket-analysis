@@ -1,4 +1,12 @@
-import type { CreateTicketRequest, TicketResponse, TicketListResponse, AnalyzeRequest, AnalysisResponse } from '../types/api';
+import type { 
+  CreateTicketRequest, 
+  TicketResponse, 
+  TicketListResponse, 
+  AnalyzeRequest, 
+  AnalysisResponse,
+  AnalysisStatusResponse,
+  AnalyzedTicketListResponse
+} from '../types/api';
 
 // Use VITE_API_BASE_URL if set (Docker/production), otherwise empty string for Vite proxy (local dev)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -65,6 +73,34 @@ export async function getLatestAnalysis(): Promise<AnalysisResponse | null> {
     throw new Error(`Failed to fetch analysis: ${response.statusText} - ${errorText}`);
   }
   
+  return response.json();
+}
+
+export async function fetchAnalyzedTickets(options: { page?: number; pageSize?: number } = {}): Promise<AnalyzedTicketListResponse> {
+  const { page = 1, pageSize = 12 } = options;
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+
+  const response = await fetch(`${API_BASE_URL}/api/tickets/analyzed?${params.toString()}`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch analyzed tickets: ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function getAnalysisStatus(analysisRunId: number): Promise<AnalysisStatusResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analyze/${analysisRunId}/status`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get analysis status: ${response.statusText} - ${errorText}`);
+  }
+
   return response.json();
 }
 

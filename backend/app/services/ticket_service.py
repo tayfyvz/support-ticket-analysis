@@ -2,9 +2,16 @@ from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.models.entities import Ticket
-from app.schemas.ticket import TicketCreateRequest, TicketListResponse, TicketResponse
+from app.models.entities import Ticket, TicketAnalysis
+from app.schemas.ticket import (
+    AnalyzedTicketListResponse,
+    AnalyzedTicketResponse,
+    TicketCreateRequest,
+    TicketListResponse,
+    TicketResponse,
+)
 
 
 class TicketService:
@@ -47,6 +54,44 @@ class TicketService:
 
         return TicketListResponse(
             items=[TicketResponse.model_validate(t) for t in tickets],
+            page=page,
+            page_size=page_size,
+        )
+
+    @staticmethod
+    async def list_analyzed_tickets(
+        db: AsyncSession, page: int = 1, page_size: int = 10
+    ) -> AnalyzedTicketListResponse:
+        """List analyzed tickets with pagination, including analysis details."""
+        offset = (page - 1) * page_size
+
+        # Get paginated ticket analyses with their tickets
+        result = await db.execute(
+            select(TicketAnalysis)
+            .join(Ticket)
+            .options(joinedload(TicketAnalysis.ticket))
+            .order_by(TicketAnalysis.id.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        ticket_analyses: Sequence[TicketAnalysis] = result.unique().scalars().all()
+
+        # Convert to AnalyzedTicketResponse format
+        analyzed_tickets = []
+        for analysis in ticket_analyses:
+            analyzed_tickets.append(
+                AnalyzedTicketResponse(
+                    id=analysis.ticket.id,
+                    title=analysis.ticket.title,
+                    description=analysis.ticket.description,
+                    priority=analysis.priority,
+                    category=analysis.category,
+                    notes=analysis.notes,
+                )
+            )
+
+        return AnalyzedTicketListResponse(
+            items=analyzed_tickets,
             page=page,
             page_size=page_size,
         )

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { createTickets, fetchTickets } from '../api/client';
-import type { TicketStore } from '../types/store';
+import { createTickets, fetchTickets, analyzeTickets, getAnalysisStatus } from '../api/client';
+import { useAnalyzedTicketStore } from './analyzedTicketStore';
+import type { TicketStore, ProcessingTicket } from '../types/store';
 import type { TicketResponse } from '../types/api';
 
 export const useTicketStore = create<TicketStore>((set, get) => ({
@@ -11,6 +12,8 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
   pageSize: 10,
   hasMore: false,
   selectedTicketIds: [],
+  processingTickets: [],
+  activeAnalysisRuns: {},
 
   createTicket: async (title: string, description: string): Promise<TicketResponse> => {
     set({ loading: true, error: null });
@@ -95,22 +98,141 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
   clearSelection: (): void => set({ selectedTicketIds: [] }),
 
   analyzeSelected: async (): Promise<void> => {
-    const { selectedTicketIds } = get();
+    const { selectedTicketIds, tickets } = get();
     if (selectedTicketIds.length === 0) return;
     
-    // TODO: Implement analyze API call
-    console.log('Analyzing selected tickets:', selectedTicketIds);
-    // After analysis, clear selection and refresh tickets
-    set({ selectedTicketIds: [] });
-    await get().loadTickets();
+    // Get the tickets that are being analyzed
+    const ticketsToProcess = tickets.filter(t => selectedTicketIds.includes(t.id));
+    
+    set({ loading: true, error: null });
+    
+    try {
+      const response = await analyzeTickets({ ticketIds: selectedTicketIds });
+      // Remove tickets from ready-to-analyze grid immediately
+      set({ 
+        tickets: tickets.filter(t => !selectedTicketIds.includes(t.id)),
+        selectedTicketIds: []
+      });
+      // Add tickets to processing list with their analysis run ID
+      get().addProcessingTickets(ticketsToProcess, response.id);
+      // Start polling for status
+      get().startPollingStatus(response.id);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze tickets';
+      set({
+        loading: false,
+        error: errorMessage,
+      });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
   },
 
   analyzeAll: async (): Promise<void> => {
-    // TODO: Implement analyze all API call
-    console.log('Analyzing all tickets');
-    // After analysis, clear selection and refresh tickets
-    set({ selectedTicketIds: [] });
-    await get().loadTickets();
+    const { tickets } = get();
+    
+    set({ loading: true, error: null });
+    
+    try {
+      const response = await analyzeTickets({});
+      // Remove all tickets from ready-to-analyze grid immediately
+      set({ 
+        tickets: [],
+        selectedTicketIds: []
+      });
+      // Add tickets to processing list with their analysis run ID
+      get().addProcessingTickets([...tickets], response.id);
+      // Start polling for status
+      get().startPollingStatus(response.id);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze tickets';
+      set({
+        loading: false,
+        error: errorMessage,
+      });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  addProcessingTickets: (tickets: TicketResponse[], analysisRunId: number): void => {
+    const { processingTickets } = get();
+    const newProcessingTickets: ProcessingTicket[] = tickets.map(ticket => ({
+      ticket,
+      analysisRunId
+    }));
+    // Append new tickets, avoiding duplicates
+    const existingTicketIds = new Set(processingTickets.map(pt => pt.ticket.id));
+    const uniqueNewTickets = newProcessingTickets.filter(pt => !existingTicketIds.has(pt.ticket.id));
+    set({ processingTickets: [...processingTickets, ...uniqueNewTickets] });
+  },
+
+  removeProcessingTickets: (analysisRunId: number): void => {
+    const { processingTickets } = get();
+    set({ 
+      processingTickets: processingTickets.filter(pt => pt.analysisRunId !== analysisRunId)
+    });
+  },
+
+  startPollingStatus: (analysisRunId: number): void => {
+    const { activeAnalysisRuns } = get();
+    
+    // Don't start polling if already polling this analysis run
+    if (activeAnalysisRuns[analysisRunId]) {
+      return;
+    }
+    
+    // Poll every 4 seconds
+    const pollStatus = async () => {
+      try {
+        const status = await getAnalysisStatus(analysisRunId);
+        
+        if (status.status === 'completed') {
+          // Analysis completed - stop polling for this run, remove its tickets, refresh grids
+          get().stopPollingStatus(analysisRunId);
+          get().removeProcessingTickets(analysisRunId);
+          await get().loadTickets();
+          // Only refresh analyzed tickets once (avoid duplicates from multiple completions)
+          await useAnalyzedTicketStore.getState().loadTickets();
+        } else if (status.status === 'failed') {
+          // Analysis failed - stop polling for this run, remove its tickets, show error
+          get().stopPollingStatus(analysisRunId);
+          get().removeProcessingTickets(analysisRunId);
+          set({ 
+            error: 'Analysis failed. Please try again.'
+          });
+        }
+        // If status is 'pending' or 'processing', continue polling
+      } catch (error) {
+        console.error('Error polling analysis status:', error);
+        // Continue polling even on error (might be temporary network issue)
+      }
+    };
+    
+    // Poll immediately, then every 4 seconds
+    pollStatus();
+    const interval = setInterval(pollStatus, 4000);
+    
+    // Track this polling interval
+    set({ activeAnalysisRuns: { ...activeAnalysisRuns, [analysisRunId]: interval } });
+  },
+
+  stopPollingStatus: (analysisRunId: number): void => {
+    const { activeAnalysisRuns } = get();
+    const interval = activeAnalysisRuns[analysisRunId];
+    if (interval) {
+      clearInterval(interval);
+      const { [analysisRunId]: _, ...rest } = activeAnalysisRuns;
+      set({ activeAnalysisRuns: rest });
+    }
+  },
+
+  stopAllPolling: (): void => {
+    const { activeAnalysisRuns } = get();
+    Object.values(activeAnalysisRuns).forEach((interval) => clearInterval(interval));
+    set({ activeAnalysisRuns: {} });
   },
 }));
 
