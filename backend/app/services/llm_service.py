@@ -26,7 +26,11 @@ class TicketClassification(BaseModel):
     )
     priority: Literal["low", "medium", "high"] = Field(
         ...,
-        description="The assigned priority. Must be one of: low, medium, high"
+        description="The assigned priority. Must be one of: low, medium, high. "
+        "Use HIGH only for critical issues (service outages, security vulnerabilities, "
+        "billing errors, account lockouts, data loss). Use MEDIUM for important issues "
+        "with workarounds or performance problems. Use LOW for minor bugs, cosmetic "
+        "issues, or nice-to-have features. Most tickets should be MEDIUM or LOW."
     )
     notes: str | None = Field(
         default=None,
