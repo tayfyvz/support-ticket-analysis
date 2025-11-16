@@ -45,14 +45,43 @@ class AnalysisRun(Base):
     ticket_analyses: Mapped[List["TicketAnalysis"]] = relationship(back_populates="analysis_run", cascade="all, delete-orphan")
 
 
+class TicketCategory(str, enum.Enum):
+    """Category of ticket analysis."""
+    BILLING = "billing"
+    BUG = "bug"
+    FEATURE_REQUEST = "feature_request"
+    SUPPORT = "support"
+    TECHNICAL = "technical"
+    ACCOUNT = "account"
+
+
 class TicketAnalysis(Base):
     __tablename__ = "ticket_analysis"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     analysis_run_id: Mapped[int] = mapped_column(ForeignKey("analysis_runs.id", ondelete="CASCADE"))
     ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"))
-    category: Mapped[str] = mapped_column(String(100))
-    priority: Mapped[str] = mapped_column(String(50))
+    category: Mapped[str] = mapped_column(
+        SQLEnum(
+            TicketCategory,
+            name="ticket_category",
+            native_enum=True,
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+    )
+    priority: Mapped[str] = mapped_column(
+        SQLEnum(
+            "low",
+            "medium",
+            "high",
+            name="ticket_priority",
+            native_enum=True,
+            create_constraint=True,
+        ),
+        nullable=False,
+    )
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     analysis_run: Mapped["AnalysisRun"] = relationship(back_populates="ticket_analyses")
