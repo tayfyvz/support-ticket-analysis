@@ -50,7 +50,7 @@ body {
   font-size: 1rem;
   word-wrap: break-word;
   overflow-wrap: break-word;
-}
+  }
 
 .app-main {
   flex: 1;
@@ -59,12 +59,12 @@ body {
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
-}
+  }
 
 @media (max-width: 768px) {
   .app-header {
     padding: 1.5rem;
-  }
+}
 
   .app-header h1 {
     font-size: 1.5rem;

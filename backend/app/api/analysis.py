@@ -27,7 +27,10 @@ async def analyze_tickets(
 ) -> AnalysisRunResponse:
     """Start analysis of tickets. If ticketIds provided, analyze only those; otherwise analyze all ready to analyze tickets.
     Returns immediately with analysis_run_id. Processing happens in background."""
-    return await AnalysisService.analyze_tickets(db, background_tasks, request.ticketIds)
+    try:
+        return await AnalysisService.analyze_tickets(db, background_tasks, request.ticketIds)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{analysis_run_id}/status", response_model=AnalysisStatusResponse)
