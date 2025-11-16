@@ -17,6 +17,7 @@ services:
       context: ./backend
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/support_tickets
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:

@@ -1,5 +1,3 @@
-import asyncio
-import random
 from typing import Sequence
 
 from fastapi import BackgroundTasks
@@ -8,14 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities import AnalysisRun, Ticket, TicketAnalysis, TicketStatus
 from app.schemas.analysis import AnalysisRunResponse
+from app.services.llm_service import LLMService
 
 
 class AnalysisService:
     """Service layer for ticket analysis operations."""
-
-    # Categories and priorities for random assignment
-    CATEGORIES = ["billing", "bug", "feature_request", "support", "technical", "account"]
-    PRIORITIES = ["low", "medium", "high"]
 
     @staticmethod
     async def list_analysis_runs(
@@ -186,7 +181,7 @@ class AnalysisService:
     async def process_analysis_background(
         db: AsyncSession, analysis_run_id: int, ticket_ids: list[int] | None = None
     ) -> None:
-        """Background task to process ticket analysis with simulated LLM processing time."""
+        """Background task to process ticket analysis using LLM."""
         try:
 
             # Get tickets to analyze (should be PROCESSING status)
@@ -204,19 +199,43 @@ class AnalysisService:
                 )
                 tickets: Sequence[Ticket] = result.scalars().all()
 
-            # Simulate LLM processing time (2-5 seconds per ticket)
-            processing_time = random.uniform(2.0, 5.0) * len(tickets)
-            await asyncio.sleep(processing_time)
+            if not tickets:
+                return
+
+            # Prepare tickets for LLM processing
+            tickets_for_llm = [
+                {
+                    "title": ticket.title,
+                    "description": ticket.description
+                }
+                for ticket in tickets
+            ]
+
+            # Initialize LLM service and analyze tickets
+            llm_service = LLMService()
+            processed_tickets, batch_summary = await llm_service.analyze_tickets(tickets_for_llm)
 
             # Process each ticket - continue even if one fails
             successful_count = 0
             failed_count = 0
 
+            # Create a mapping of title+description to processed ticket for lookup
+            processed_map = {
+                (pt["title"], pt["description"]): pt
+                for pt in processed_tickets
+            }
+
             for ticket in tickets:
                 try:
-                    category = random.choice(AnalysisService.CATEGORIES)
-                    priority = random.choice(AnalysisService.PRIORITIES)
-                    notes = f"Auto-analyzed: {category} issue with {priority} priority"
+                    # Find the corresponding processed ticket
+                    processed = processed_map.get((ticket.title, ticket.description))
+                    if not processed:
+                        raise ValueError(f"Processed ticket not found for ticket {ticket.id}: {ticket.title}")
+                    
+                    category = processed["category"]
+                    priority = processed["priority"]
+                    # Use LLM-generated notes if available, otherwise empty string
+                    notes = processed.get("notes") or None
 
                     ticket_analysis = TicketAnalysis(
                         analysis_run_id=analysis_run_id,
@@ -236,8 +255,12 @@ class AnalysisService:
                     failed_count += 1
                     print(f"Error analyzing ticket {ticket.id}: {e}")
 
-            # Update summary
-            summary = f"Analyzed {successful_count} ticket(s)"
+            # Update summary with LLM-generated summary or fallback
+            if successful_count > 0:
+                summary = batch_summary if batch_summary else f"Analyzed {successful_count} ticket(s)"
+            else:
+                summary = "Analysis completed with no successful results"
+            
             if failed_count > 0:
                 summary += f", {failed_count} failed"
 

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Support Ticket Analyst API"
     database_url: Annotated[str, PostgresDsn] = "postgresql+asyncpg://postgres:postgres@db:5432/support_tickets"
+    openai_api_key: str = ""
 
     @property
     def sync_database_url(self) -> str:

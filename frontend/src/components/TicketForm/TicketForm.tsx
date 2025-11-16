@@ -68,7 +68,15 @@ export function TicketForm() {
   };
 
   const handleDownloadSample = () => {
-    const csvContent = 'title,description\n"Login Issue","User cannot log in to the system"\n"Payment Error","Payment processing failed for order #12345"\n"Feature Request","Add dark mode to the application"';
+    const csvContent = `title,description
+"Unable to Login","I cannot log in to my account. When I enter my credentials, I get an error message saying 'Invalid username or password'. I've tried resetting my password but the email never arrives. This is urgent as I need to access my account for work."
+"Billing Discrepancy","I was charged $99.99 for my subscription this month, but my plan should only cost $49.99. I've been on the basic plan for 6 months and this is the first time I've seen this charge. Please investigate and issue a refund."
+"Application Crash on Startup","The application crashes immediately when I try to open it. I'm using Windows 11 and the latest version. The error message says 'Application has stopped working'. This started happening after the last update."
+"Request for Dark Mode Feature","I would love to see a dark mode option added to the application. I use the app frequently at night and the bright white background is hard on my eyes. Many users have requested this feature."
+"Password Reset Email Not Working","I'm trying to reset my password but I'm not receiving the reset email. I've checked my spam folder and tried multiple times. My email address is correct in my account settings."
+"Slow Performance on Dashboard","The dashboard takes over 15 seconds to load, and sometimes it times out completely. This happens consistently, especially when viewing reports. It used to load in 2-3 seconds."
+"Export Data to Excel","It would be very helpful if users could export their data to Excel format. Currently, we can only export to CSV which doesn't preserve formatting. This would save a lot of time for reporting."
+"Email Notifications Not Sending","I'm not receiving email notifications when tickets are assigned to me or when there are updates. I've checked my notification settings and they're all enabled. This is affecting my ability to respond quickly to customers."`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
